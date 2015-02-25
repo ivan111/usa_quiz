@@ -1,0 +1,64 @@
+body {
+    background-color: #EFFCEB;
+}
+
+table {
+    border-collapse: collapse;
+    margin-top: 1em;
+}
+
+table, th, td {
+    border: 1px solid black;
+}
+
+td {
+    padding: 4px;
+}
+
+div.panel {
+    margin-top: 1em;
+}
+
+
+#container {
+    width: 1016px;
+    margin: 0 auto;
+}
+
+.question {
+    font-size: 200%;
+    text-align: center;
+}
+
+.mistakes {
+    color: red;
+    font-weight: bold;
+}
+
+.correct {
+    color: blue;
+    font-weight: bold;
+}
+
+#map {
+    background-color: #DDD;
+}
+
+#start-button {
+    margin-left: 1em;
+}
+
+table.states-table {
+    width: 1000px;
+    background-color: #FFF;
+    border: 2px solid black;
+}
+
+td.td-state {
+    width: 160px;
+}
+
+td.td-result {
+    width: 40px;
+    border-right: 2px solid black;
+}
