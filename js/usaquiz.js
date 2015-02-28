@@ -2,6 +2,7 @@ var usaquiz = (function ()
 {
 
 var
+    i,
     STATES_KEYS,
     STATES_NUM,
     statesGeos = {},
@@ -9,37 +10,38 @@ var
     lang = 'en',
 
     DEF_W = 1000,
-    DEF_H = 500,
+    DEF_H = 540,
     FLAG_W = 247,
     FLAG_H = 130,
     FLAG_X = DEF_W - FLAG_W,
     FLAG_Y = DEF_H - FLAG_H,
 
-    SCORE_X = DEF_W - 150,
-    SCORE_Y = 50,
-
-    MODE_ALL = 1,
-    MODE_WEST = 2,
-    MODE_MIDWEST = 3,
-    MODE_NORTHEAST = 4,
-    MODE_SOUTH = 5,
-
     MAX_MISTAKABLE = 3,
     MAX_SKIPPABLE = 3,
 
+    COLOR_OFF = '#888',
+    COLOR_BSO_B = '#28CC8F',
+    COLOR_BSO_S = '#E9D912',
+    COLOR_BSO_O = '#E43E24',
+
+    MODE_ALL = 0,
+    MODE_WEST = 1,
+    MODE_MIDWEST = 2,
+    MODE_NORTHEAST = 3,
+    MODE_SOUTH = 4,
+
     REGIONS = [
         { label: 'ALL', label_ja: '全州', value: MODE_ALL, selected: true },
-        { label: 'WEST', label_ja: '西部', value: MODE_WEST },
-        { label: 'MIDWEST', label_ja: '中西部', value: MODE_MIDWEST },
-        { label: 'NORTHEAST', label_ja: '北東部', value: MODE_NORTHEAST },
-        { label: 'SOUTH', label_ja: '南部', value: MODE_SOUTH }
+        { label: 'WEST', label_ja: '西部', value: MODE_WEST,
+            ids: [ 'WA', 'OR', 'CA', 'MT', 'ID', 'NV', 'WY', 'UT', 'CO', 'AZ', 'NM' ] },
+        { label: 'MIDWEST', label_ja: '中西部', value: MODE_MIDWEST,
+            ids: [ 'ND', 'SD', 'NE', 'KS', 'MN', 'IA', 'MO', 'WI', 'IL', 'MI', 'IN', 'OH' ] },
+        { label: 'NORTHEAST', label_ja: '北東部', value: MODE_NORTHEAST,
+            ids: [ 'PA', 'NY', 'NJ', 'VT', 'NH', 'ME', 'MA', 'CT', 'RI' ] },
+        { label: 'SOUTH', label_ja: '南部', value: MODE_SOUTH,
+            ids: [ 'OK', 'TX', 'AR', 'LA', 'KY', 'TN', 'MS', 'AL', 'WV', 'MD', 'DE', 'VA',
+                  'NC', 'SC', 'GA', 'FL' ] }
     ],
-
-    westList = [ 'WA', 'OR', 'CA', 'MT', 'ID', 'NV', 'WY', 'UT', 'CO', 'AZ', 'NM' ],
-    midwestList = [ 'ND', 'SD', 'NE', 'KS', 'MN', 'IA', 'MO', 'WI', 'IL', 'MI', 'IN', 'OH' ],
-    northeastList = [ 'PA', 'NY', 'NJ', 'VT', 'NH', 'ME', 'MA', 'CT', 'RI' ],
-    southList = [ 'OK', 'TX', 'AR', 'LA', 'KY', 'TN', 'MS', 'AL', 'WV', 'MD', 'DE', 'VA',
-                  'NC', 'SC', 'GA', 'FL' ],
 
     tblUSA = {
         'AL': { 'name_ja': 'アラバマ', 'fillKey': 'D' },
@@ -113,9 +115,18 @@ var
 STATES_KEYS = Object.keys( tblUSA );
 STATES_NUM = STATES_KEYS.length;
 
-for ( var i = 0; i < STATES_NUM; i++ ) {
+REGIONS[ MODE_ALL ].ids = STATES_KEYS;
+
+for ( i = 0; i < STATES_NUM; i++ ) {
     tblUSA[ STATES_KEYS[ i ] ][ 'no' ] = i;
     tblUSA[ STATES_KEYS[ i ] ][ 'id' ] = STATES_KEYS[ i ];
+}
+
+var numText;
+for ( i = 0; i < REGIONS.length; i++ ) {
+    numText = ' (' + REGIONS[ i ].ids.length + ')';
+    REGIONS[ i ].label += numText;
+    REGIONS[ i ].label_ja += numText;
 }
 
 
@@ -133,6 +144,34 @@ function shuffle( arr ) {
 
     return arr;
 }
+
+
+function addQuestionPlugin( map, quiz )
+{
+    map.addPlugin( 'addQuestionText', function( layer ) {
+        quiz.d3.q = layer
+            .append( 'text' )
+            .attr( 'x', DEF_W / 2 )
+            .attr( 'y', 50 )
+            .style( 'text-anchor', 'middle' )
+            .style( 'font-size', '36px' )
+            .style( 'font-weight', 'bold' )
+            .text( '' );
+
+        quiz.d3.msg = layer
+            .append( 'text' )
+            .attr( 'x', DEF_W / 2 )
+            .attr( 'y', 80 )
+            .style( 'fill', 'red' )
+            .style( 'text-anchor', 'middle' )
+            .style( 'font-size', '20px' )
+            .style( 'font-weight', 'bold' )
+            .text( '' );
+    } );
+
+    map.addQuestionText();
+}
+
 
 
 function addSmallStatesPlugin( map, quiz )
@@ -273,8 +312,8 @@ function addFlagStarPlugin( map, quiz )
             .style( 'fill', '#3C3B6E' )
             .on( 'click', function() {
                 if ( quiz.curPos < quiz.statesNum ) {
-                    quiz.score.b++;
-                    quiz.setScore();
+                    quiz.bso.b++;
+                    quiz.setBSO();
                 }
             } );
 
@@ -300,47 +339,30 @@ function addFlagStarPlugin( map, quiz )
 function addBaseBallPlugin( map, quiz )
 {
     map.addPlugin( 'playBall', function( layer ) {
-        var i,
+        var i, x, y,
             self = this,
-            strikeY = SCORE_Y,
-            ballY = strikeY + 30,
-            outY = ballY + 30,
+            BSO_X = DEF_W - 140,
+            BSO_Y = 200,
+            ballY = BSO_Y + 22,
+            strikeY = ballY + 30,
+            outY = strikeY + 30,
             ballR = 10;
 
         layer
             .append( 'rect' )
-            .attr( 'x', SCORE_X - 10 )
-            .attr( 'y', SCORE_Y - 22 )
+            .attr( 'x', BSO_X )
+            .attr( 'y', BSO_Y )
             .attr( 'width', 112 )
             .attr( 'height', 97 )
             .style( 'stroke', '#000' )
-            .style( 'fill', '#FFF' )
+            .style( 'fill', '#333' )
             .style( 'stroke-width', 1 );
 
         layer
             .append( 'text' )
-            .attr( 'x', SCORE_X )
-            .attr( 'y', strikeY )
-            .style( 'font-size', '16px' )
-            .style( 'font-weight', 'bold' )
-            .text( 'S' );
-
-        for ( i = 0; i < 2; i++ ) {
-            quiz.d3[ 'strike-' + i ] = layer
-                .append( 'circle' )
-                .attr( 'id', 'score-strike-' + i )
-                .attr( 'cx', SCORE_X + 30 + (i*25) )
-                .attr( 'cy', strikeY - (ballR / 2) )
-                .attr( 'r', ballR )
-                .style( 'fill', '#FFF' )
-                .style( 'stroke', '#000' )
-                .style( 'stroke-width', 1 )
-        }
-
-        layer
-            .append( 'text' )
-            .attr( 'x', SCORE_X )
+            .attr( 'x', BSO_X + 10 )
             .attr( 'y', ballY )
+            .style( 'fill', '#FFF' )
             .style( 'font-size', '16px' )
             .style( 'font-weight', 'bold' )
             .text( 'B' );
@@ -348,8 +370,8 @@ function addBaseBallPlugin( map, quiz )
         for ( i = 0; i < 3; i++ ) {
             quiz.d3[ 'ball-' + i ] = layer
                 .append( 'circle' )
-                .attr( 'id', 'score-ball-' + i )
-                .attr( 'cx', SCORE_X + 30 + (i*25) )
+                .attr( 'id', 'bso-ball-' + i )
+                .attr( 'cx', BSO_X + 40 + (i*25) )
                 .attr( 'cy', ballY - (ballR / 2) )
                 .attr( 'r', ballR )
                 .style( 'fill', '#FFF' )
@@ -359,8 +381,30 @@ function addBaseBallPlugin( map, quiz )
 
         layer
             .append( 'text' )
-            .attr( 'x', SCORE_X )
+            .attr( 'x', BSO_X + 10 )
+            .attr( 'y', strikeY )
+            .style( 'fill', '#FFF' )
+            .style( 'font-size', '16px' )
+            .style( 'font-weight', 'bold' )
+            .text( 'S' );
+
+        for ( i = 0; i < 2; i++ ) {
+            quiz.d3[ 'strike-' + i ] = layer
+                .append( 'circle' )
+                .attr( 'id', 'bso-strike-' + i )
+                .attr( 'cx', BSO_X + 40 + (i*25) )
+                .attr( 'cy', strikeY - (ballR / 2) )
+                .attr( 'r', ballR )
+                .style( 'fill', '#FFF' )
+                .style( 'stroke', '#000' )
+                .style( 'stroke-width', 1 )
+        }
+
+        layer
+            .append( 'text' )
+            .attr( 'x', BSO_X + 10 )
             .attr( 'y', outY )
+            .style( 'fill', '#FFF' )
             .style( 'font-size', '16px' )
             .style( 'font-weight', 'bold' )
             .text( 'O' );
@@ -368,8 +412,8 @@ function addBaseBallPlugin( map, quiz )
         for ( i = 0; i < 2; i++ ) {
             quiz.d3[ 'out-' + i ] = layer
                 .append( 'circle' )
-                .attr( 'id', 'score-out-' + i )
-                .attr( 'cx', SCORE_X + 30 + (i*25) )
+                .attr( 'id', 'bso-out-' + i )
+                .attr( 'cx', BSO_X + 40 + (i*25) )
                 .attr( 'cy', outY - (ballR / 2) )
                 .attr( 'r', ballR )
                 .style( 'fill', '#FFF' )
@@ -496,15 +540,15 @@ function clickGeography( geo, quiz )
             quiz.d3.msg.text( " That't " + tblUSA[ geo.id ].name + '.' );
         }
 
-        quiz.score.s++;
+        quiz.bso.s++;
         result.html( result.html() + '<span class="mistakes">X</span>' );
 
-        if ( quiz.score.s < MAX_MISTAKABLE ) {
-            quiz.setScore();
+        if ( quiz.bso.s < MAX_MISTAKABLE ) {
+            quiz.setBSO();
         } else {
-            quiz.score.o++;
+            quiz.bso.o++;
 
-            if ( quiz.score.o < MAX_SKIPPABLE ) {
+            if ( quiz.bso.o < MAX_SKIPPABLE ) {
                 quiz.nextQuestion();
             } else {
                 quiz.curPos = quiz.statesNum + 1;
@@ -634,14 +678,24 @@ function USAQuiz ( container, lng )
         .attr( 'class', 'panel' );
 
     this.d3.region = this.d3.panel.append( 'select' )
-        .attr( 'id', 'region' );
+        .attr( 'id', 'region' )
+        .on( 'change', function ( d ) {
+            var mode = MODE_ALL;
+
+            try {
+                mode = parseInt( d3.select( '#region' ).node().value );
+            } catch ( e ) {
+            }
+
+            quiz.start( mode );
+        } );
 
     this.d3.region
         .selectAll( 'option' )
         .data( REGIONS )
         .enter()
         .append( 'option' )
-        .attr( 'value', function( d ) { return d.value; } )
+        .attr( 'value', function( d, i ) { return i; } )
         .attr( 'selected', function( d ) { if ( d.selected ) return 'selected'; } )
         .text( function( d ) {
             if ( lang == 'ja' ) {
@@ -651,34 +705,14 @@ function USAQuiz ( container, lng )
             }
         } );
 
-    this.d3.startButton = this.d3.panel.append( 'button' )
-        .attr( 'id', 'start-button' )
-        .attr( 'type', 'button' )
-        .text( 'START' )
-        .on( 'click', function () {
-            var mode = parseInt( d3.select( '#region' ).node().value );
-
-            quiz.start( mode );
-        } );
-
-    this.d3.q = this.d3.container.append( 'p' )
-        .attr( 'id', 'question' )
-        .attr( 'class', 'question' );
-
-    this.d3.msgdiv = this.d3.container.append( 'p' );
-
-    this.d3.curPos = this.d3.msgdiv.append( 'span' )
+    this.d3.curPos = this.d3.panel.append( 'span' )
         .attr( 'id', 'cur_pos' )
         .attr( 'class', 'cur_pos' );
 
-    this.d3.msg = this.d3.msgdiv.append( 'span' )
-        .attr( 'id', 'message' )
-        .attr( 'class', 'message' );
-
     this.d3.map = this.d3.container.append( 'div' )
         .attr( 'id', 'map' )
-        .style( 'width', '1000px' )
-        .style( 'height', '500px' )
+        .style( 'width', DEF_W + 'px' )
+        .style( 'height', DEF_H + 'px' )
         .style( 'outline', '2px solid' )
         .style( 'position', 'relative' );
 
@@ -702,6 +736,7 @@ function USAQuiz ( container, lng )
         }
     } );
 
+    addQuestionPlugin( this.map, this );
     addSmallStatesPlugin( this.map, this );
     addFlagStarPlugin( this.map, this );
     addBaseBallPlugin( this.map, this );
@@ -732,9 +767,9 @@ USAQuiz.prototype.nextQuestion = function()
         return;
     }
 
-    this.score.s = 0;
-    this.score.b = 0;
-    this.setScore();
+    this.bso.s = 0;
+    this.bso.b = 0;
+    this.setBSO();
 
     d = tblUSA[ this.qIDs[ this.curPos ] ];
 
@@ -748,26 +783,15 @@ USAQuiz.prototype.nextQuestion = function()
 };
 
 
-USAQuiz.prototype.setScore = function()
+USAQuiz.prototype.setBSO = function()
 {
     var i, color;
 
-    for ( i = 0; i < 2; i++ ) {
-        if ( i < this.score.s ) {
-            color = '#E9D912';
-        } else {
-            color = '#FFF';
-        }
-
-        this.d3[ 'strike-' + i ]
-            .style( 'fill', color );
-    }
-
     for ( i = 0; i < 3; i++ ) {
-        if ( i < this.score.b ) {
-            color = '#28CC8F';
+        if ( i < this.bso.b ) {
+            color = COLOR_BSO_B;
         } else {
-            color = '#FFF';
+            color = COLOR_OFF;
         }
 
         this.d3[ 'ball-' + i ]
@@ -775,10 +799,21 @@ USAQuiz.prototype.setScore = function()
     }
 
     for ( i = 0; i < 2; i++ ) {
-        if ( i < this.score.o ) {
-            color = '#E43E24';
+        if ( i < this.bso.s ) {
+            color = COLOR_BSO_S;
         } else {
-            color = '#FFF';
+            color = COLOR_OFF;
+        }
+
+        this.d3[ 'strike-' + i ]
+            .style( 'fill', color );
+    }
+
+    for ( i = 0; i < 2; i++ ) {
+        if ( i < this.bso.o ) {
+            color = COLOR_BSO_O;
+        } else {
+            color = COLOR_OFF;
         }
 
         this.d3[ 'out-' + i ]
@@ -789,32 +824,18 @@ USAQuiz.prototype.setScore = function()
 
 USAQuiz.prototype.start = function( mode )
 {
-    if ( mode != MODE_WEST && mode != MODE_MIDWEST && mode != MODE_NORTHEAST && mode != MODE_SOUTH ) {
+    if ( mode === undefined || mode < 0 || mode >= REGIONS.length ) {
         mode = MODE_ALL;
     }
 
     this.prevClickStateID = '';
     this.d3.msg.text( '' );
 
-    var baseList;
+    this.qIDs = shuffle( REGIONS[ mode ].ids.slice(0) );
+    this.statesNum = this.qIDs.length;
 
-    if ( mode == MODE_WEST ) {
-        baseList = westList;
-    } else if (mode == MODE_MIDWEST ) {
-        baseList = midwestList;
-    } else if (mode == MODE_NORTHEAST ) {
-        baseList = northeastList;
-    } else if (mode == MODE_SOUTH ) {
-        baseList = southList;
-    } else {
-        baseList = Object.keys( tblUSA );
-    }
-
-    this.qIDs = shuffle( baseList.slice(0) );
-    this.statesNum = baseList.length;
-
-    this.score = { s: 0, b: 0, o: 0 };
-    this.setScore();
+    this.bso = { b: 0, s: 0, o: 0 };
+    this.setBSO();
 
     this.curPos = -1;
     this.nextQuestion();

@@ -42,9 +42,11 @@ div.panel {
 
 #map {
     background-color: #DDD;
+    margin-top: 1em;
+    margin-: 1em;
 }
 
-#start-button {
+#cur_pos {
     margin-left: 1em;
 }
 

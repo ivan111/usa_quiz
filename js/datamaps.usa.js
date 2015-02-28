@@ -79,7 +79,7 @@
     if ( options.scope === 'usa' ) {
       projection = d3.geo.albersUsa()
         .scale(width)
-        .translate([width / 2 - 100, height / 2]);
+        .translate([width / 2 - 50, height / 2 + 30 ]);
         //.translate([width / 2, height / 2]);
     }
     else if ( options.scope === 'world' ) {
