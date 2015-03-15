@@ -494,6 +494,8 @@ createStarPos();
 
 function clickGeography( geo, quiz )
 {
+    var clearPrevClickID = false;
+
     if ( quiz.curPos >= quiz.statesNum ) {
         if ( lang == 'ja' ) {
             quiz.d3.msg.text( tblUSA[ geo.id ].name_ja );
@@ -537,7 +539,7 @@ function clickGeography( geo, quiz )
         if ( lang == 'ja' ) {
             quiz.d3.msg.text( ' そこは ' + tblUSA[ geo.id ].name_ja );
         } else {
-            quiz.d3.msg.text( " That't " + tblUSA[ geo.id ].name + '.' );
+            quiz.d3.msg.text( " That's " + tblUSA[ geo.id ].name + '.' );
         }
 
         quiz.bso.s++;
@@ -547,6 +549,8 @@ function clickGeography( geo, quiz )
             quiz.setBSO();
         } else {
             quiz.bso.o++;
+
+            clearPrevClickID = true;
 
             if ( quiz.bso.o < MAX_SKIPPABLE ) {
                 quiz.nextQuestion();
@@ -561,7 +565,11 @@ function clickGeography( geo, quiz )
         }
     }
 
-    quiz.prevClickStateID = geo.id;
+    if (clearPrevClickID) {
+        quiz.prevClickStateID = "";
+    } else {
+        quiz.prevClickStateID = geo.id;
+    }
 }
 
 
@@ -720,6 +728,7 @@ function USAQuiz ( container, lng )
         element: this.d3.map[0][0],
         scope: 'usa',
         geographyConfig: {
+            borderColor: '#000',
             popupOnHover: false
         },
         fills: myfills,

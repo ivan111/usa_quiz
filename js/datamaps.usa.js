@@ -17,8 +17,7 @@
         dataUrl: null,
         hideAntarctica: true,
         borderWidth: 1,
-        //borderColor: '#FDFDFD',
-        borderColor: '#000',
+        borderColor: '#FDFDFD',
         popupTemplate: function(geography, data) {
           return '<div class="hoverinfo"><strong>' + geography.properties.name + '</strong></div>';
         },
